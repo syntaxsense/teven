@@ -1,38 +1,59 @@
 <!DOCTYPE html>
 <html>
-<head><title>BASIC Line Editor</title>
+<head><title>BASIC Line Editor (teven)</title>
 <style>
 body { font-family: monospace; background: #000; color: #0f0; padding: 20px; }
 textarea { background: #111; color: #0f0; border: 1px solid #0f0; width: 100%; height: 400px; font-size: 14px; }
 input, button { background: #222; color: #0f0; border: 1px solid #0f0; padding: 8px; margin: 5px; }
 button { cursor: pointer; }
 #output { margin-top: 10px; color: #ff0; }
+.url-input { width: 60%; }
 </style></head>
 <body>
 <h1>BASIC Line Editor (teven)</h1>
+
+<!-- New Input for Remote URL -->
+<div>
+    <label>Source URL (Optional):</label>
+    <input id="sourceUrl" class="url-input" placeholder="https://raw.githubusercontent.com/user/repo/main/basic.bas" />
+    <button onclick="loadFromUrl()">Load Source</button>
+</div>
+<br>
+
 <textarea id="code">10 PRINT "HELLO WORLD"
 20 FOR I = 1 TO 10
 30 PRINT I
 40 NEXT I
 50 END
 </textarea><br>
-<input id="range" placeholder="1010-1050" />
-<input id="newcode" placeholder="1010 PRINT 42" />
-<button onclick="editLines()">Rewrite Range</button>
-<button onclick="loadFromGitHub()">Load from GitHub</button>
+<div>
+    <input id="range" placeholder="1010-1050" />
+    <input id="newcode" placeholder="1010 PRINT 42" />
+    <button onclick="editLines()">Rewrite Range</button>
+</div>
 <pre id="output"></pre>
 
 <script>
 let currentCode = document.getElementById('code');
 let output = document.getElementById('output');
 
-async function loadFromGitHub() {
+async function loadFromUrl() {
+  const urlInput = document.getElementById('sourceUrl').value.trim();
+  // If no URL is provided, try to fetch a local file named basic.bas
+  const targetUrl = urlInput ? urlInput : '/basic.bas';
+  
+  output.textContent = `Loading: ${targetUrl}...`;
+
   try {
-    const res = await fetch('/basic.bas');
-    if (res.ok) currentCode.value = await res.text();
-    output.textContent = 'Loaded from GitHub!';
+    const res = await fetch(targetUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    const text = await res.text();
+    currentCode.value = text;
+    output.textContent = `Loaded successfully (${text.length} bytes)`;
   } catch(e) {
-    output.textContent = 'Use local editing (GitHub backend coming)';
+    output.textContent = `Error: ${e.message}. Ensure the URL is a 'raw' link and supports CORS.`;
+    console.error(e);
   }
 }
 
@@ -45,8 +66,15 @@ function parseLines(text) {
 
 function editLines() {
   const lines = parseLines(currentCode.value);
-  const [start, end] = document.getElementById('range').value.split('-').map(Number);
+  const rangeVal = document.getElementById('range').value;
   const newCode = document.getElementById('newcode').value;
+
+  if (!rangeVal || !rangeVal.includes('-')) {
+      output.textContent = 'Error: Please enter a valid range (e.g. 10-20)';
+      return;
+  }
+  
+  const [start, end] = rangeVal.split('-').map(Number);
   
   const updated = lines.map(line => {
     if (line.num >= start && line.num <= end) {
@@ -56,7 +84,7 @@ function editLines() {
   });
   
   currentCode.value = updated.map(l => l.full).join('\n');
-  output.textContent = `Updated lines ${start}-${end}`;
+  output.textContent = `Updated lines ${start}-${end} with "${newCode}"`;
 }
 </script>
 </body>
